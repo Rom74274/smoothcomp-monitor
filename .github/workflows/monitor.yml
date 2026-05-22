@@ -40,6 +40,9 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: playwright install-deps chromium
 
+      - name: Restore session
+        run: echo "${{ secrets.SESSION_STATE }}" | base64 -d > session_state.json
+
       - name: Run monitor
         env:
           CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}

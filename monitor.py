@@ -9,6 +9,7 @@ from playwright.sync_api import sync_playwright
 
 URL = "https://smoothcomp.com/en/event/31206/register/1513381/entries"
 STATE_FILE = Path("state.json")
+SESSION_FILE = Path("session_state.json")
 
 CALLMEBOT_PHONE = os.environ["CALLMEBOT_PHONE"]
 CALLMEBOT_APIKEY = os.environ["CALLMEBOT_APIKEY"]
@@ -22,13 +23,13 @@ logging.basicConfig(
 def fetch_page():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        context = browser.new_context(storage_state=str(SESSION_FILE))
+        page = context.new_page()
         page.goto(URL, wait_until="networkidle", timeout=60000)
-        # Attendre que le contenu réel soit chargé
         try:
             page.wait_for_selector('script#data[type="application/json"]', timeout=15000)
         except Exception:
-            pass  # On continue, check_availability gèrera l'absence
+            pass
         html = page.content()
         browser.close()
     return html
