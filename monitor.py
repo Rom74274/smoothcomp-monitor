@@ -24,6 +24,11 @@ def fetch_page():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(URL, wait_until="networkidle", timeout=60000)
+        # Attendre que le contenu réel soit chargé
+        try:
+            page.wait_for_selector('script#data[type="application/json"]', timeout=15000)
+        except Exception:
+            pass  # On continue, check_availability gèrera l'absence
         html = page.content()
         browser.close()
     return html
@@ -34,14 +39,23 @@ def check_availability(html):
 
     soup = BeautifulSoup(html, "html.parser")
 
+    # La vraie page Smoothcomp fait 20k+ chars et contient le script JSON.
+    # Si la page est trop petite ou sans script JSON, c'est une page bloquée/challenge.
+    data_script = soup.find("script", id="data", attrs={"type": "application/json"})
+    if len(html) < 10000 or not data_script:
+        logging.warning(
+            "Page incomplète ou bloquée (%d chars, data_script=%s). Ignoré.",
+            len(html), bool(data_script),
+        )
+        return None, {"error": "page_incomplete"}
+
     unavailable_labels = soup.find_all("span", class_="label label-warning")
     has_unavailable_label = any(
         "Item not available" in label.get_text() for label in unavailable_labels
     )
 
     has_available_true = False
-    data_script = soup.find("script", id="data", attrs={"type": "application/json"})
-    if data_script and data_script.string:
+    if data_script.string:
         try:
             data = json.loads(data_script.string)
             has_available_true = _find_available_true(data)
@@ -101,6 +115,11 @@ def main():
 
     logging.info("Page récupérée (%d chars)", len(html))
     available, details = check_availability(html)
+
+    if available is None:
+        logging.warning("Check ignoré (page incomplète).")
+        return
+
     last = load_state()
     current = "available" if available else "unavailable"
 
