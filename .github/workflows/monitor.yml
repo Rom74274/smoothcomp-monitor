@@ -3,6 +3,8 @@ name: Smoothcomp monitor
 on:
   schedule:
     - cron: "*/5 * * * *"
+  repository_dispatch:
+    types: [check]
   workflow_dispatch:
 
 permissions:
